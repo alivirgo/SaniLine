@@ -5,8 +5,10 @@ __pycache__/
 
 # Distribution / packaging
 build/
-dist/
+dist/*
+!dist/saniline.min.js
 eggs/
+
 *.egg-info/
 .installed.cfg
 *.egg
