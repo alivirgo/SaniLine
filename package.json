@@ -1,0 +1,58 @@
+{
+  "name": "saniline",
+  "version": "0.1.0",
+  "description": "Real-Time Military-Grade Line-by-Line Code Sanitizer & Security Shield for AI Agents",
+  "main": "./lib/index.cjs",
+  "module": "./lib/index.mjs",
+  "types": "./lib/index.d.ts",
+  "browser": "./dist/saniline.min.js",
+  "jsdelivr": "./dist/saniline.min.js",
+  "unpkg": "./dist/saniline.min.js",
+  "bin": {
+    "saniline": "bin/saniline.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./lib/index.mjs",
+      "require": "./lib/index.cjs",
+      "types": "./lib/index.d.ts"
+    }
+  },
+  "files": [
+    "lib",
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test tests-js/saniline.test.js"
+  },
+  "keywords": [
+    "ai-agent",
+    "security",
+    "cybersecurity",
+    "code-sanitization",
+    "military-grade",
+    "ast-security",
+    "cwe",
+    "owasp",
+    "token-efficient",
+    "trojan-source",
+    "devin",
+    "cursor",
+    "claude-code",
+    "antigravity",
+    "mcp"
+  ],
+  "author": "SaniLine Contributors",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alivirgo/SaniLine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/alivirgo/SaniLine/issues"
+  },
+  "homepage": "https://github.com/alivirgo/SaniLine#readme"
+}

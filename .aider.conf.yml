@@ -1,0 +1,5 @@
+# Aider Configuration for SaniLine Military-Grade Security
+lint-cmd: "saniline check {file} --compact"
+auto-lint: true
+auto-test: true
+test-cmd: "python -m pytest -q && npm test"

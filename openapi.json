@@ -1,0 +1,123 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SaniLine AI Agent Code Sanitizer API",
+    "description": "Military-grade real-time line-by-line code sanitizer and security shield for AI agents, ChatGPT, and Codex.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.saniline.dev/v1",
+      "description": "SaniLine Production Endpoint"
+    }
+  ],
+  "paths": {
+    "/sanitize/line": {
+      "post": {
+        "operationId": "sanitizeLine",
+        "summary": "Sanitize a single line of code with military-grade zero-trust rules",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "line": { "type": "string", "description": "Single line of code to sanitize" },
+                  "language": { "type": "string", "default": "generic" },
+                  "compact": { "type": "boolean", "default": true, "description": "Returns token-minified response (<10 tokens)" }
+                },
+                "required": ["line"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sanitized line result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "patch": { "type": "string" },
+                    "issues": { "type": "array", "items": { "type": "object" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sanitize/block": {
+      "post": {
+        "operationId": "sanitizeBlock",
+        "summary": "Sanitize and auto-patch an entire code snippet",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": { "type": "string", "description": "Full source code block" },
+                  "language": { "type": "string", "default": "generic" },
+                  "action": { "type": "string", "enum": ["autopatch", "audit", "redact"], "default": "autopatch" },
+                  "compact": { "type": "boolean", "default": true }
+                },
+                "required": ["code"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sanitized code response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/audit": {
+      "post": {
+        "operationId": "auditSecurity",
+        "summary": "Evaluate codebase against DoD STIG and NIST SSDF standards",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": { "type": "string" },
+                  "language": { "type": "string", "default": "generic" }
+                },
+                "required": ["code"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Security audit report and compliance scorecard",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

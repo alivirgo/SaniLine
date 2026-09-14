@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "saniline"
+version = "0.1.0"
+description = "Real-Time Military-Grade Line-by-Line Code Sanitizer & Security Shield for AI Agents"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "SaniLine Contributors" }
+]
+keywords = [
+    "ai-agent",
+    "cybersecurity",
+    "code-sanitization",
+    "ast-security",
+    "military-grade",
+    "devin",
+    "cursor",
+    "antigravity",
+    "claude-code",
+    "mcp",
+    "zero-trust",
+    "cwe",
+    "owasp",
+    "nist-ssdf",
+    "stig"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed"
+]
+dependencies = [
+    "click>=8.0.0",
+    "rich>=12.0.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.20.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/alivirgo/SaniLine"
+Documentation = "https://github.com/alivirgo/SaniLine#readme"
+Repository = "https://github.com/alivirgo/SaniLine.git"
+Issues = "https://github.com/alivirgo/SaniLine/issues"
+
+[project.scripts]
+saniline = "saniline.cli.main:main"
+saniline-mcp = "saniline.mcp.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+saniline = ["py.typed"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra -q"

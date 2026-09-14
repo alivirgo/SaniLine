@@ -1,0 +1,8 @@
+# Windsurf / Cascade AI Agent Security Rules: SaniLine
+
+## Code Generation Mandate
+Before applying changes or creating new files:
+1. Ensure all code lines adhere to military-grade standards (DoD STIG, NIST SP 800-218, CWE Top 25).
+2. Prohibit hardcoded API keys, shell injection vectors (`shell=True`, `os.system`), and Trojan Source Unicode overrides.
+3. Validate code changes via `saniline check <target> --compact`.
+4. Run `saniline sanitize <target> --in-place` to auto-patch any identified security violations.

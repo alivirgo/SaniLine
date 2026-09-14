@@ -1,0 +1,23 @@
+---
+description: SaniLine Military-Grade Line-by-Line Code Sanitization Shield
+globs: *
+alwaysApply: true
+---
+
+# Cursor Security Directive: SaniLine Zero-Trust Compliance
+
+You are an autonomous AI coding agent using SaniLine to protect code generated in this workspace.
+
+## Rules to Enforce:
+1. **Line Sanitization**: As you generate or patch code, ensure every single line complies with DoD STIG and CWE Top 25 specifications.
+2. **Auto-Patching**:
+   - `shell=True` -> `shell=False` with argument lists.
+   - `verify=False` -> `verify=True`.
+   - `yaml.load(...)` -> `yaml.safe_load(...)`.
+   - `random.choice(...)` for tokens -> `secrets.choice(...)`.
+   - Credentials / API Keys -> `os.environ.get(...)` or `process.env`.
+   - Bidirectional Unicode overrides (U+202E, Trojan Source) -> Purged.
+3. **Execution Command**:
+   - Verify code with `saniline check <file> --compact`.
+   - Auto-repair code with `saniline sanitize <file> --in-place`.
+   - Use `result.to_token_compact()` to preserve context token capacity.
