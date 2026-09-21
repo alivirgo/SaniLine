@@ -8,7 +8,6 @@ smuggled inside code comments, docstrings, or string literals targeting autonomo
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from saniline.core.context import StreamContext
 from saniline.core.models import (
@@ -36,17 +35,17 @@ class PromptInjectionSmugglingRule(BaseRule):
     min_security_level = SecurityLevel.STRICT
     supported_languages = ["*"]
 
-    # Patterns commonly used to hijack LLMs from within source files
+    # ReDoS-safe bounded patterns preventing catastrophic backtracking
     HIJACK_PATTERNS = [
-        re.compile(r"""(?i)\b(?:ignore|disregard|forget)\s+(?:all\s+)?(?:previous|prior|above)\s+instructions\b"""),
+        re.compile(r"""(?i)\b(?:ignore|disregard|forget)\s{1,8}(?:all\s{1,8})?(?:previous|prior|above)\s{1,8}instructions\b"""),
         re.compile(r"""(?i)(?:<\|im_start\|>|<\|im_end\|>|\[INST\]|\[/INST\]|<system>|<assistant>)"""),
-        re.compile(r"""(?i)\b(?:system\s*prompt|you\s+are\s+now\s+in\s+developer\s+mode|jailbreak|DAN\s+mode)\b"""),
-        re.compile(r"""(?i)(?:exfiltrate|send|upload)\s+(?:all\s+)?(?:secrets|tokens|credentials|env\s+vars)\s+to\b"""),
+        re.compile(r"""(?i)\b(?:system\s{0,4}prompt|you\s{1,4}are\s{1,4}now\s{1,4}in\s{1,4}developer\s{1,4}mode|jailbreak|DAN\s{1,4}mode)\b"""),
+        re.compile(r"""(?i)(?:exfiltrate|send|upload)\s{1,8}(?:all\s{1,8})?(?:secrets|tokens|credentials|env\s{1,4}vars)\s{1,8}to\b"""),
     ]
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         stripped = line.strip()
         if not stripped:
             return None
@@ -54,7 +53,6 @@ class PromptInjectionSmugglingRule(BaseRule):
         for pattern in self.HIJACK_PATTERNS:
             match = pattern.search(line)
             if match:
-                # Neutralize the smuggled payload by neutralizing directive words
                 neutralized = pattern.sub("[SANILINE_DEFUSED_PROMPT_INJECTION]", line)
                 return self.create_violation(
                     line_no=line_no,

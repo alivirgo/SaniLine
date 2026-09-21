@@ -1,6 +1,6 @@
 {
   "name": "saniline",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Real-Time Military-Grade Line-by-Line Code Sanitizer & Security Shield for AI Agents",
   "main": "./lib/index.cjs",
   "module": "./lib/index.mjs",
@@ -9,24 +9,39 @@
   "jsdelivr": "./dist/saniline.min.js",
   "unpkg": "./dist/saniline.min.js",
   "bin": {
-    "saniline": "bin/saniline.js"
+    "saniline": "bin/saniline.js",
+    "saniline-mcp": "bin/saniline.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "exports": {
     ".": {
       "import": "./lib/index.mjs",
       "require": "./lib/index.cjs",
       "types": "./lib/index.d.ts"
+    },
+    "./mcp": {
+      "require": "./lib/mcp.cjs"
     }
   },
   "files": [
     "lib",
-    "dist",
+    "dist/saniline.min.js",
     "bin",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "llms.txt"
   ],
   "scripts": {
-    "test": "node --test tests-js/saniline.test.js"
+    "test": "node --test tests-js/saniline.test.js",
+    "check": "node bin/saniline.js check",
+    "rules": "node bin/saniline.js rules",
+    "mcp": "node bin/saniline.js mcp",
+    "prepublishOnly": "npm test"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "ai-agent",
@@ -43,7 +58,18 @@
     "cursor",
     "claude-code",
     "antigravity",
-    "mcp"
+    "mcp",
+    "model-context-protocol",
+    "vercel-ai-sdk",
+    "transformstream",
+    "streaming-security",
+    "prototype-pollution",
+    "xss-prevention",
+    "prompt-injection",
+    "sarif",
+    "zero-trust",
+    "nextjs",
+    "langchain"
   ],
   "author": "SaniLine Contributors",
   "license": "Apache-2.0",

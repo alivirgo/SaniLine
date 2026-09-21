@@ -8,7 +8,6 @@ as mandated by CWE-502, OWASP A08:2021, and DoD STIG APSC-DV-002620.
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from saniline.core.context import StreamContext
 from saniline.core.models import (
@@ -33,22 +32,22 @@ class UnsafeYamlLoadRule(BaseRule):
     stig_id = "APSC-DV-002620"
     nist_control = "SI-10"
     min_security_level = SecurityLevel.STANDARD
-    supported_languages = ["python"]
+    supported_languages = ["python", "javascript", "typescript", "generic", "*"]
 
     # Match yaml.load(...) that does NOT specify SafeLoader
-    PATTERN = re.compile(r"""\byaml\s*\.\s*load\s*\(([^)]*)\)""")
+    PATTERN = re.compile(r"""\byaml\s*\.\s*load\s*\(([^)]{0,256})\)""")
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         if context.is_inside_comment_or_docstring():
             return None
 
         match = self.PATTERN.search(line)
         if match:
             args = match.group(1)
-            # If SafeLoader or CSafeLoader is explicitly used, it's safe
-            if "SafeLoader" in args:
+            # If SafeLoader, safe_load, or CSafeLoader is explicitly used, it's safe
+            if "SafeLoader" in args or "safe_load" in line:
                 return None
 
             # Generate auto-patch to yaml.safe_load()
@@ -59,7 +58,7 @@ class UnsafeYamlLoadRule(BaseRule):
                 line_no=line_no,
                 matched_snippet=match.group(0),
                 column=match.start(),
-                remediation_advice="Replace yaml.load() with yaml.safe_load() to disallow arbitrary Python object creation.",
+                remediation_advice="Replace yaml.load() with yaml.safe_load() to disallow arbitrary object creation.",
                 suggested_patch=patched,
             )
         return None
@@ -80,17 +79,16 @@ class UnsafePickleRule(BaseRule):
     min_security_level = SecurityLevel.STANDARD
     supported_languages = ["python"]
 
-    PATTERN = re.compile(r"""\b(?:pickle|_pickle)\s*\.\s*(?:loads?)\s*\((.+?)\)""")
+    PATTERN = re.compile(r"""\b(?:pickle|_pickle)\s*\.\s*(?:loads?)\s*\((.{1,512}?)\)""")
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         if context.is_inside_comment_or_docstring():
             return None
 
         match = self.PATTERN.search(line)
         if match:
-            arg = match.group(1).strip()
             return self.create_violation(
                 line_no=line_no,
                 matched_snippet=match.group(0),

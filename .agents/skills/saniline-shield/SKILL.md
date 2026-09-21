@@ -1,6 +1,6 @@
 ---
 name: saniline-shield
-description: Use SaniLine to sanitize each line of generated code with military-grade cybersecurity standards, removing secrets, command injections, Trojan Source Unicode, and prompt injection smuggling with minimal token consumption.
+description: Use SaniLine to sanitize each line of generated code with military-grade cybersecurity standards, removing secrets, command injections, Prototype Pollution, DOM XSS, Trojan Source Unicode, and prompt injection smuggling with minimal token consumption.
 ---
 
 # SaniLine Security Shield for AI Agents
@@ -23,28 +23,57 @@ compact_info = result.to_token_compact()
 
 ### 2. Node / JavaScript Environment
 ```javascript
-import { SaniLine } from 'saniline';
+import { SaniLine, SaniLineTransformStream } from "saniline";
+
+// Line-by-line inspection:
 const shield = new SaniLine();
 const res = shield.sanitizeLine(codeLine);
-const compact = res.toTokenCompact();
+const compact = res.toTokenCompact(); // {"status": "CLEAN"}
+
+// Real-time LLM token stream filtering (Vercel AI SDK):
+const safeStream = textStream.pipeThrough(new SaniLineTransformStream());
 ```
 
-### 3. CLI Stream & Batch Auditing
+### 3. Model Context Protocol (MCP) Integration
+AI agents with MCP support can connect directly via stdio:
+```json
+{
+  "mcpServers": {
+    "saniline": {
+      "command": "npx",
+      "args": ["-y", "saniline", "mcp"]
+    }
+  }
+}
+```
+Available tools:
+- `saniline_sanitize_line`
+- `saniline_sanitize_block`
+- `saniline_audit_security`
+- `saniline_explain_rule`
+
+### 4. CLI Stream & Batch Auditing
 ```bash
-# Verify entire project with minimal token output:
-saniline check . --compact
+# Verify entire project with minimal token output (<10 tokens when clean):
+npx saniline check . --compact
+
+# Export standard OASIS SARIF v2.1.0 for GitHub Actions Code Scanning:
+npx saniline check . --format sarif
 
 # Automatically patch file in-place:
-saniline sanitize <filepath> --in-place
+npx saniline sanitize <filepath> --in-place
 
 # Filter a stream:
-llm_stream | saniline stream
+cat llm_stream.py | npx saniline stream > safe_code.py
 ```
 
-### 4. What SaniLine Protects You From:
-- Accidental hallucinated API keys (AWS, OpenAI, GitHub PATs).
-- Remote command injection via `subprocess.run(..., shell=True)` or `os.system()`.
+### 5. What SaniLine Protects You From:
+- Accidental hallucinated API keys (AWS, OpenAI, Anthropic, Gemini, Stripe, Supabase, GitHub PATs).
+- Command injection via `subprocess.run(..., shell=True)`, `child_process.exec(...)`, or `os.system()`.
+- Prototype Pollution mutations (`__proto__`, `constructor.prototype`).
+- DOM XSS injections (`dangerouslySetInnerHTML`, `innerHTML = ...`, `document.write`).
 - Trojan Source Unicode exploits (CVE-2021-42574) and zero-width characters.
 - Insecure deserialization via `yaml.load()` or `pickle.loads()`.
 - Adversarial prompt injections smuggled inside comments or docstrings.
 - Transport insecurity (`verify=False` or `rejectUnauthorized: false`).
+- Wildcard interface exposure (`0.0.0.0` -> `127.0.0.1`).

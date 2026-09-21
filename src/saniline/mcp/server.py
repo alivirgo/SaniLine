@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from saniline import __version__
 from saniline.core.engine import SaniLine
@@ -18,6 +18,8 @@ from saniline.core.models import SanitizeAction, SecurityLevel
 from saniline.rules.base import RuleRegistry
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
+MAX_LINE_LENGTH = 1_000_000       # 1MB limit on single line
+MAX_BLOCK_LENGTH = 10_000_000     # 10MB limit on code block
 
 TOOLS = [
     {
@@ -40,7 +42,7 @@ TOOLS = [
         "name": "saniline_sanitize_block",
         "description": (
             "Audits and automatically neutralizes vulnerabilities (RCE, hardcoded secrets, "
-            "Trojan Source Unicode, Insecure Deserialization, SSRF, SQL Injection) in a code block."
+            "Trojan Source Unicode, Insecure Deserialization, SSRF, SQL Injection, Prototype Pollution, XSS) in a code block."
         ),
         "inputSchema": {
             "type": "object",
@@ -76,7 +78,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "rule_id": {"type": "string", "description": "Rule ID (e.g. SL-SEC-001, SL-RCE-001)."},
+                "rule_id": {"type": "string", "description": "Rule ID (e.g. SL-SEC-001, SL-RCE-001, SL-PROTO-001)."},
             },
             "required": ["rule_id"],
         },
@@ -91,10 +93,19 @@ class McpServer:
             action=SanitizeAction.AUTOPATCH,
         )
 
-    def handle_request(self, request: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def handle_request(self, request: dict[str, Any]) -> dict[str, Any] | None:
+        if not isinstance(request, dict):
+            return {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32600, "message": "Invalid Request: root must be an object."},
+            }
+
         msg_id = request.get("id")
         method = request.get("method")
         params = request.get("params", {})
+        if not isinstance(params, dict):
+            params = {}
 
         if method == "initialize":
             return {
@@ -154,17 +165,21 @@ class McpServer:
                 "error": {"code": -32601, "message": f"Method not found: {method}"},
             }
 
-    def dispatch_tool(self, name: str, args: Dict[str, Any]) -> Any:
+    def dispatch_tool(self, name: str, args: dict[str, Any]) -> Any:
         compact = args.get("compact", True)
 
         if name == "saniline_sanitize_line":
             line = args.get("line", "")
+            if len(line) > MAX_LINE_LENGTH:
+                raise ValueError(f"Line exceeds maximum permitted size of {MAX_LINE_LENGTH} characters.")
             lang = args.get("language")
             res = self.engine.sanitize_line(line, language=lang)
             return res.to_token_compact() if compact else res.to_dict()
 
         elif name == "saniline_sanitize_block":
             code = args.get("code", "")
+            if len(code) > MAX_BLOCK_LENGTH:
+                raise ValueError(f"Code block exceeds maximum permitted size of {MAX_BLOCK_LENGTH} characters.")
             lang = args.get("language")
             action_str = args.get("action", "autopatch")
             action = SanitizeAction(action_str)
@@ -174,6 +189,8 @@ class McpServer:
 
         elif name == "saniline_audit_security":
             code = args.get("code", "")
+            if len(code) > MAX_BLOCK_LENGTH:
+                raise ValueError(f"Code block exceeds maximum permitted size of {MAX_BLOCK_LENGTH} characters.")
             lang = args.get("language")
             report = self.engine.audit_code(code, language=lang)
             return report.to_token_compact() if compact else report.to_dict()
@@ -200,7 +217,6 @@ class McpServer:
 def main() -> None:
     """Runs the MCP server over standard I/O."""
     server = McpServer()
-    # Read incoming JSON-RPC lines from stdin
     for raw_line in sys.stdin:
         line = raw_line.strip()
         if not line:

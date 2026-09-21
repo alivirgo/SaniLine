@@ -7,9 +7,6 @@ documented in CVE-2021-42574 and CWE-1036 (Homoglyph / Invisible Character Tampe
 
 from __future__ import annotations
 
-import unicodedata
-from typing import Dict, List, Optional, Tuple
-
 from saniline.core.context import StreamContext
 from saniline.core.models import (
     RuleCategory,
@@ -20,7 +17,7 @@ from saniline.core.models import (
 from saniline.rules.base import BaseRule, RuleRegistry
 
 # CVE-2021-42574 Trojan Source Bidi Override & Isolates
-DANGEROUS_UNICODE_CHARS: Dict[str, str] = {
+DANGEROUS_UNICODE_CHARS: dict[str, str] = {
     "\u202A": "LEFT-TO-RIGHT EMBEDDING [LRE]",
     "\u202B": "RIGHT-TO-LEFT EMBEDDING [RLE]",
     "\u202C": "POP DIRECTIONAL FORMATTING [PDF]",
@@ -55,15 +52,14 @@ class TrojanSourceUnicodeRule(BaseRule):
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
-        detected_chars: List[str] = []
+    ) -> Violation | None:
+        detected_chars: list[str] = []
         for ch in line:
             if ch in DANGEROUS_UNICODE_CHARS:
                 detected_chars.append(DANGEROUS_UNICODE_CHARS[ch])
 
         if detected_chars:
             unique_chars = sorted(set(detected_chars))
-            # Auto-patch by stripping the dangerous control characters
             cleaned_line = "".join(ch for ch in line if ch not in DANGEROUS_UNICODE_CHARS)
             return self.create_violation(
                 line_no=line_no,

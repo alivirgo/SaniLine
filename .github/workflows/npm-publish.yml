@@ -2,11 +2,16 @@ name: Publish to NPM
 
 on:
   release:
-    types: [created]
+    types: [published, created]
   workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   publish-npm:
+    name: Publish to NPM Registry
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -21,7 +26,10 @@ jobs:
       - name: Run Tests
         run: npm test
 
+      - name: Verify Package Contents
+        run: npm pack --dry-run
+
       - name: Publish to NPM
-        run: npm publish --access public
+        run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

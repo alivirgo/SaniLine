@@ -11,7 +11,6 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 import click
 from rich.console import Console
@@ -21,12 +20,106 @@ from rich.table import Table
 from saniline import __tagline__, __version__
 from saniline.core.context import StreamContext
 from saniline.core.engine import SaniLine
-from saniline.core.models import SanitizeAction, SecurityLevel, Severity
+from saniline.core.models import AuditReport, SanitizeAction, SecurityLevel, Severity
 from saniline.mcp.server import main as run_mcp_server
 from saniline.rules.base import RuleRegistry
 
 console = Console()
 err_console = Console(stderr=True)
+
+IGNORED_DIRS = {
+    ".git", "node_modules", "dist", "build", ".next", ".turbo",
+    ".cache", "coverage", "__pycache__", ".venv", "venv", ".gemini"
+}
+
+ALLOWED_EXTENSIONS = {
+    ".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx",
+    ".sh", ".bash", ".go", ".c", ".cpp", ".sql", ".html",
+    ".json", ".yaml", ".yml"
+}
+
+
+def collect_files(target_path: Path) -> list[Path]:
+    """Recursively collects source files while avoiding symlink cycles and ignored directories."""
+    resolved = target_path.resolve()
+    if resolved.is_file():
+        return [resolved]
+
+    files: list[Path] = []
+    visited_dirs: set[Path] = set()
+
+    def walk(current: Path) -> None:
+        try:
+            real = current.resolve()
+        except OSError:
+            return
+        if real in visited_dirs:
+            return
+        visited_dirs.add(real)
+
+        try:
+            entries = list(current.iterdir())
+        except OSError:
+            return
+
+        for entry in entries:
+            if entry.is_dir() and not entry.is_symlink():
+                if entry.name not in IGNORED_DIRS:
+                    walk(entry)
+            elif entry.is_file():
+                if entry.suffix.lower() in ALLOWED_EXTENSIONS:
+                    files.append(entry)
+
+    walk(resolved)
+    return files
+
+
+def generate_sarif(report: AuditReport) -> dict:
+    """Generates OASIS SARIF v2.1.0 JSON report."""
+    rules = RuleRegistry.all_rules()
+    return {
+        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "SaniLine",
+                        "version": __version__,
+                        "informationUri": "https://github.com/alivirgo/SaniLine",
+                        "rules": [
+                            {
+                                "id": r.rule_id,
+                                "name": r.title,
+                                "shortDescription": {"text": r.title},
+                                "properties": {
+                                    "category": r.category.value,
+                                    "severity": r.severity.value,
+                                },
+                            }
+                            for r in rules
+                        ],
+                    }
+                },
+                "results": [
+                    {
+                        "ruleId": v.rule_id,
+                        "level": "error" if v.severity in (Severity.CRITICAL, Severity.HIGH) else "warning",
+                        "message": {"text": f"{v.title} - {v.remediation_advice}"},
+                        "locations": [
+                            {
+                                "physicalLocation": {
+                                    "artifactLocation": {"uri": report.target_name},
+                                    "region": {"startLine": v.line_number or 1},
+                                }
+                            }
+                        ],
+                    }
+                    for v in report.violations
+                ],
+            }
+        ],
+    }
 
 
 @click.group(invoke_without_command=True)
@@ -52,18 +145,14 @@ def main(ctx: click.Context, version: bool) -> None:
 @click.option("--level", "-l", type=click.Choice(["standard", "strict", "military"]), default="military", help="Defense level.")
 @click.option("--compact", "-c", is_flag=True, help="Output token-minified JSON for AI agent context efficiency.")
 @click.option("--json-out", is_flag=True, help="Output full JSON audit telemetry.")
-def check(target: str, level: str, compact: bool, json_out: bool) -> None:
+@click.option("--format", "output_format", type=click.Choice(["terminal", "sarif"]), default="terminal", help="Output format.")
+def check(target: str, level: str, compact: bool, json_out: bool, output_format: str) -> None:
     """Audit a file or directory for vulnerabilities and security posture."""
     sec_level = SecurityLevel(level)
     engine = SaniLine(level=sec_level, action=SanitizeAction.AUDIT)
 
     target_path = Path(target)
-    files_to_scan = []
-    if target_path.is_file():
-        files_to_scan.append(target_path)
-    else:
-        for ext in ("*.py", "*.js", "*.ts", "*.sh", "*.bash", "*.go", "*.c", "*.cpp", "*.sql"):
-            files_to_scan.extend(target_path.rglob(ext))
+    files_to_scan = collect_files(target_path)
 
     if not files_to_scan:
         if compact:
@@ -83,13 +172,18 @@ def check(target: str, level: str, compact: bool, json_out: bool) -> None:
         except Exception as err:
             err_console.print(f"[red]Error scanning {file_path}: {err}[/red]")
 
-    from saniline.core.models import AuditReport
     combined = AuditReport(
         target_name=str(target_path),
         total_lines=total_lines,
         violations=all_violations,
     )
     score = combined.calculate_score()
+
+    if output_format == "sarif":
+        click.echo(json.dumps(generate_sarif(combined), indent=2))
+        if not combined.passed_military_spec:
+            sys.exit(1)
+        return
 
     if compact:
         click.echo(json.dumps(combined.to_token_compact(), separators=(",", ":")))
@@ -151,9 +245,9 @@ def check(target: str, level: str, compact: bool, json_out: bool) -> None:
 @click.option("--in-place", "-i", is_flag=True, help="Modify file directly in-place.")
 @click.option("--output", "-o", type=click.Path(), help="Output path for sanitized code.")
 @click.option("--level", "-l", type=click.Choice(["standard", "strict", "military"]), default="military")
-def sanitize(target: str, in_place: bool, output: Optional[str], level: str) -> None:
+def sanitize(target: str, in_place: bool, output: str | None, level: str) -> None:
     """Sanitize and auto-patch vulnerabilities in a file."""
-    path = Path(target)
+    path = Path(target).resolve()
     if not path.is_file():
         err_console.print(f"[red]Target must be a file: {target}[/red]")
         sys.exit(1)
@@ -171,7 +265,7 @@ def sanitize(target: str, in_place: bool, output: Optional[str], level: str) -> 
         path.write_text(res.sanitized_code, encoding="utf-8")
         console.print(f"[green]✓ Sanitized in-place: {path} ({len(res.violations)} threats neutralized)[/green]")
     elif output:
-        out_path = Path(output)
+        out_path = Path(output).resolve()
         out_path.write_text(res.sanitized_code, encoding="utf-8")
         console.print(f"[green]✓ Sanitized output written to: {out_path}[/green]")
     else:
@@ -214,7 +308,6 @@ def list_rules() -> None:
     table.add_column("DoD STIG")
     table.add_column("Min Level")
 
-
     for r in sorted(rules, key=lambda x: (x.severity.score_weight, x.rule_id), reverse=True):
         sev_color = "red" if r.severity == Severity.CRITICAL else "bright_red" if r.severity == Severity.HIGH else "yellow"
         table.add_row(
@@ -242,7 +335,9 @@ def install_hook() -> None:
         err_console.print("[red]No .git repository directory found in current path.[/red]")
         sys.exit(1)
 
-    hook_path = git_dir / "hooks" / "pre-commit"
+    hooks_dir = git_dir / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    hook_path = hooks_dir / "pre-commit"
     hook_content = (
         "#!/usr/bin/env sh\n"
         "# SaniLine Military-Grade Pre-Commit Security Shield\n"

@@ -16,7 +16,7 @@ from saniline.core.models import (
     Violation,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __tagline__ = "Real-Time Military-Grade Line-by-Line Code Sanitizer & Security Shield for AI Agents"
 
 __all__ = [

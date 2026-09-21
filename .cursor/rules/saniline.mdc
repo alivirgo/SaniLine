@@ -9,15 +9,20 @@ alwaysApply: true
 You are an autonomous AI coding agent using SaniLine to protect code generated in this workspace.
 
 ## Rules to Enforce:
-1. **Line Sanitization**: As you generate or patch code, ensure every single line complies with DoD STIG and CWE Top 25 specifications.
+1. **Line Sanitization**: As you generate or patch code, ensure every single line complies with DoD STIG, NIST SP 800-218, and CWE Top 25 specifications.
 2. **Auto-Patching**:
    - `shell=True` -> `shell=False` with argument lists.
-   - `verify=False` -> `verify=True`.
+   - `child_process.exec(...)` -> `child_process.execFile(...)`.
+   - `verify=False` / `rejectUnauthorized: false` -> `true`.
    - `yaml.load(...)` -> `yaml.safe_load(...)`.
-   - `random.choice(...)` for tokens -> `secrets.choice(...)`.
-   - Credentials / API Keys -> `os.environ.get(...)` or `process.env`.
-   - Bidirectional Unicode overrides (U+202E, Trojan Source) -> Purged.
-3. **Execution Command**:
-   - Verify code with `saniline check <file> --compact`.
-   - Auto-repair code with `saniline sanitize <file> --in-place`.
-   - Use `result.to_token_compact()` to preserve context token capacity.
+   - `random.choice(...)` / `Math.random()` for tokens -> cryptographically secure RNG (`secrets`, `crypto.randomBytes`).
+   - Credentials / API Keys (AWS, GitHub, OpenAI, Anthropic, Gemini, Stripe, Supabase) -> `os.environ.get(...)` or `process.env`.
+   - Prototype Pollution (`__proto__`, `constructor.prototype`) -> Blocked / Neutralized.
+   - DOM XSS (`dangerouslySetInnerHTML`, `innerHTML`) -> Flagged for sanitization.
+   - Bidirectional Unicode overrides (U+202E, Trojan Source CVE-2021-42574) -> Purged.
+3. **Execution Commands**:
+   - Verify code: `saniline check <file> --compact` or `npx saniline check <file> --compact`.
+   - Auto-repair code: `saniline sanitize <file> --in-place` or `npx saniline sanitize <file> --in-place`.
+   - Export SARIF: `saniline check <path> --format sarif`.
+   - Use `result.toTokenCompact()` (JS) / `result.to_token_compact()` (Python) to preserve context tokens (<10 tokens).
+   - Connect via MCP: `saniline-mcp` or `npx -y saniline mcp`.

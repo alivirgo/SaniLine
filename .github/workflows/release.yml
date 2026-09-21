@@ -4,13 +4,16 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
 
 jobs:
   build-and-release:
     name: Build Packages & Publish GitHub Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout code
@@ -27,12 +30,38 @@ jobs:
 
       - name: Build Distribution Packages (wheel + sdist)
         run: |
-          python -m build
+          python -m build --outdir dist-py/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: |
+            dist-py/*
+            dist/saniline.min.js
           draft: false
           prerelease: false
           generate_release_notes: true
+
+  publish-npm:
+    name: Publish to NPM
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Run Tests
+        run: npm test
+
+      - name: Publish to NPM
+        if: env.NPM_TOKEN != ''
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

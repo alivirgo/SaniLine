@@ -44,6 +44,18 @@ class TestSecretRules:
         assert not res.is_clean
         assert "[REDACTED_SECRET:GITHUB_TOKEN]" in res.sanitized_code
 
+    def test_stripe_and_supabase_token_detection(self):
+        engine = SaniLine(level=SecurityLevel.MILITARY, action=SanitizeAction.AUTOPATCH)
+        raw_stripe = 'stripe_key = "' + "sk_live_" + '51Abcdefghijklmnopqrstuvw"'
+        res_stripe = engine.sanitize_line(raw_stripe, language="python")
+        assert not res_stripe.is_clean
+        assert "[REDACTED_SECRET:STRIPE_SECRET_KEY]" in res_stripe.sanitized_code
+
+        raw_sub = 'token = "' + "sbp_" + '1234567890abcdef1234567890abcdef12345678"'
+        res_sub = engine.sanitize_line(raw_sub, language="python")
+        assert not res_sub.is_clean
+        assert "[REDACTED_SECRET:SUPABASE_TOKEN]" in res_sub.sanitized_code
+
     def test_database_url_password_redaction(self):
         engine = SaniLine(level=SecurityLevel.MILITARY, action=SanitizeAction.AUTOPATCH)
         raw = 'DB_URI = "postgres://admin:SuperSecretPass999@localhost:5432/mydb"'
@@ -175,3 +187,18 @@ class TestCryptoAndNetworkRules:
         res = engine.sanitize_line(raw, language="python")
         assert not res.is_clean
         assert any(v.cwe_id == "CWE-89" for v in res.violations)
+
+    def test_prototype_pollution_detected(self):
+        engine = SaniLine(level=SecurityLevel.MILITARY, action=SanitizeAction.AUDIT)
+        raw = 'obj["__proto__"]["admin"] = true;'
+        res = engine.sanitize_line(raw, language="javascript")
+        assert not res.is_clean
+        assert any(v.cwe_id == "CWE-1321" for v in res.violations)
+
+    def test_dom_xss_detected(self):
+        engine = SaniLine(level=SecurityLevel.MILITARY, action=SanitizeAction.AUDIT)
+        raw = '<div dangerouslySetInnerHTML={{ __html: user_payload }} />'
+        res = engine.sanitize_line(raw, language="javascript")
+        assert not res.is_clean
+        assert any(v.cwe_id == "CWE-79" for v in res.violations)
+

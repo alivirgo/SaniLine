@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set
 
 
 @dataclass
@@ -19,15 +18,15 @@ class StreamContext:
     language: str = "generic"
     current_line_number: int = 0
     in_multiline_docstring: bool = False
-    docstring_delimiter: Optional[str] = None
+    docstring_delimiter: str | None = None
     in_block_comment: bool = False
     open_paren_count: int = 0
     open_bracket_count: int = 0
     open_brace_count: int = 0
-    imported_modules: Set[str] = field(default_factory=set)
-    imported_symbols: Dict[str, str] = field(default_factory=dict)  # symbol -> module
-    tainted_variables: Set[str] = field(default_factory=set)
-    line_history: List[str] = field(default_factory=list)
+    imported_modules: set[str] = field(default_factory=set)
+    imported_symbols: dict[str, str] = field(default_factory=dict)  # symbol -> module
+    tainted_variables: set[str] = field(default_factory=set)
+    line_history: list[str] = field(default_factory=list)
 
     @classmethod
     def detect_language_from_path_or_content(cls, path_or_hint: str) -> str:
@@ -97,8 +96,9 @@ class StreamContext:
                         if sym_name:
                             self.imported_symbols[sym_name] = mod
 
-        # Count bracket depths
-        for ch in raw_line:
+        # Count bracket depths (sample up to first 2048 chars for pathological lines)
+        sample = raw_line if len(raw_line) <= 2048 else raw_line[:2048]
+        for ch in sample:
             if ch == "(":
                 self.open_paren_count += 1
             elif ch == ")" and self.open_paren_count > 0:

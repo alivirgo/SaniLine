@@ -9,7 +9,6 @@ in compliance with CWE-327, CWE-328, CWE-330, and DoD STIG APSC-DV-002010.
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from saniline.core.context import StreamContext
 from saniline.core.models import (
@@ -35,14 +34,14 @@ class DisabledTlsVerificationRule(BaseRule):
     stig_id = "APSC-DV-002010"
     nist_control = "SC-8"
     min_security_level = SecurityLevel.STANDARD
-    supported_languages = ["python", "javascript", "typescript"]
+    supported_languages = ["python", "javascript", "typescript", "generic", "*"]
 
     PATTERN = re.compile(r"""\bverify\s*=\s*(?:False|0)\b""")
     JS_REJECT_UNAUTHORIZED = re.compile(r"""\brejectUnauthorized\s*:\s*false\b""")
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         if context.is_inside_comment_or_docstring():
             return None
 
@@ -80,8 +79,8 @@ class InsecurePrngForSecurityRule(BaseRule):
     rule_id = "SL-CRY-002"
     title = "Insecure PRNG in Token/Security Context"
     description = (
-        "The standard 'random' module is pseudo-random and predictable. Cryptographic secrets, "
-        "session tokens, and nonces require the 'secrets' module (CWE-330, CWE-338)."
+        "The standard 'random' module or Math.random() is pseudo-random and predictable. Cryptographic secrets, "
+        "session tokens, and nonces require CSPRNGs ('secrets' module or crypto.randomBytes) (CWE-330, CWE-338)."
     )
     category = RuleCategory.CRYPTO_FAILURE
     severity = Severity.HIGH
@@ -89,23 +88,25 @@ class InsecurePrngForSecurityRule(BaseRule):
     stig_id = "APSC-DV-002030"
     nist_control = "SC-13"
     min_security_level = SecurityLevel.STRICT
-    supported_languages = ["python"]
+    supported_languages = ["python", "javascript", "typescript", "generic", "*"]
 
     # Detect random.choice or random.randint when assigning to token, secret, salt, password, or key
-    PATTERN = re.compile(
+    PY_PATTERN = re.compile(
         r"""\b(?:token|secret|salt|key|nonce|auth|otp|password)\w*\s*=\s*.*?\brandom\s*\.\s*(?:choice|choices|randint|randrange|getrandbits)\b""",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
+    JS_MATH_RANDOM = re.compile(r"""\bMath\s*\.\s*random\s*\(\s*\)""")
+    SECURITY_TOKEN_HINT = re.compile(r"""(?i)(?:token|key|secret|password|passwd|salt|nonce|session|auth|otp|id|uuid)""")
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         if context.is_inside_comment_or_docstring():
             return None
 
-        match = self.PATTERN.search(line)
+        # Check Python
+        match = self.PY_PATTERN.search(line)
         if match:
-            # Auto-patch: replace random. with secrets.
             patched = line.replace("random.", "secrets.")
             return self.create_violation(
                 line_no=line_no,
@@ -115,6 +116,18 @@ class InsecurePrngForSecurityRule(BaseRule):
                 suggested_patch=patched,
                 custom_description="Predictable PRNG 'random' used for sensitive credential/token generation.",
             )
+
+        # Check JS/TS Math.random in security context
+        if self.JS_MATH_RANDOM.search(line) and self.SECURITY_TOKEN_HINT.search(line):
+            return self.create_violation(
+                line_no=line_no,
+                matched_snippet="Math.random()",
+                column=line.find("Math.random"),
+                remediation_advice="Use crypto.randomBytes() or crypto.getRandomValues() instead of Math.random().",
+                suggested_patch=None,
+                custom_description="Insecure PRNG Math.random() detected in cryptographic/token variable context.",
+            )
+
         return None
 
 
@@ -132,14 +145,14 @@ class WeakHashAlgorithmRule(BaseRule):
     stig_id = "APSC-DV-002010"
     nist_control = "SC-13"
     min_security_level = SecurityLevel.STRICT
-    supported_languages = ["python", "javascript", "typescript"]
+    supported_languages = ["python", "javascript", "typescript", "generic", "*"]
 
     PY_PATTERN = re.compile(r"""\bhashlib\s*\.\s*(md5|sha1)\s*\(""")
     JS_PATTERN = re.compile(r"""\bcrypto\s*\.\s*createHash\s*\(\s*['"](md5|sha1)['"]\s*\)""", re.IGNORECASE)
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         if context.is_inside_comment_or_docstring():
             return None
 

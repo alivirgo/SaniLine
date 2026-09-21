@@ -3,6 +3,34 @@
 All notable changes to **SaniLine** are documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-09-21
+
+### Major 2026 Ecosystem Expansion & Security Upgrades
+
+#### Highlights
+- **Full Universal Node.js & NPM Ecosystem Package**:
+  - `SaniLineTransformStream`: Web Streams API `TransformStream` that integrates directly into **Vercel AI SDK** (`streamText.pipeThrough(...)`), Next.js App Router, Cloudflare Workers, and browser fetch streams with zero buffer latency.
+  - `SaniLineNodeTransform`: Node.js `node:stream` Transform for stdio and Node HTTP pipelines.
+  - Native zero-Python Model Context Protocol (MCP) Server: run directly with `npx -y saniline mcp` or `saniline-mcp`.
+  - Recursive CLI directory auditor with path filtering, symlink loop prevention, and colored scorecard.
+  - Automated Git pre-commit hook installer (`npx saniline hook install`).
+- **Complete Rule Parity (17 Active Rules Across Python & JS)**:
+  - `SL-PROTO-001` (Prototype Pollution / CWE-1321): Neutralizes `__proto__` and `constructor.prototype` tampering.
+  - `SL-XSS-001` (DOM XSS / CWE-79): Flags React `dangerouslySetInnerHTML`, `innerHTML = ...`, and `document.write`.
+  - `SL-RCE-004` (Child Process Insecure Shell / CWE-78): Auto-patches `child_process.exec()` / `execSync()` to `execFile()` / `execFileSync()`.
+  - Secrets Expansion: Added recognition for **Stripe (`sk_live_...`)** and **Supabase (`sbp_...`)** tokens.
+- **Enterprise CI & GitHub Code Scanning**:
+  - Standard **OASIS SARIF v2.1.0** export via `--format sarif` across both Python and Node CLIs.
+  - Multi-platform GitHub Actions CI matrix testing Python 3.9–3.13 and Node.js 18.x, 20.x, 22.x across Ubuntu, Windows, and macOS.
+  - Automated release workflow with npm provenance and GitHub Release artifact attachments.
+- **2026 Coding Standards & Robustness**:
+  - Upgraded Python code to **PEP 604** modern union and collection typings (`list[T]`, `dict[K, V]`, `X | None`).
+  - Introduced custom domain exceptions: `SaniLineError` and `SecurityViolationError`.
+  - ReDoS defense: bounded regex whitespace quantifiers (`\s{1,8}`) and bounded lookaheads.
+  - Minified file defense: bracket depth counting capped at 2,048 chars in `StreamContext`.
+  - Memory DoS guards: MCP servers limit incoming line length (1MB) and block length (10MB).
+  - Stream lifecycle control: `signal?: AbortSignal` cancellation on streaming transforms.
+
 ## [0.1.0] - 2026-09-14
 
 ### Initial Release: Real-Time Military-Grade Line-by-Line Code Sanitizer & Security Shield for AI Agents

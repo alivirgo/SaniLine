@@ -1,6 +1,6 @@
 # SaniLine — Real-Time Military-Grade Code Sanitizer for AI Agents
 
-> SaniLine is a zero-latency, token-optimized line-by-line code sanitizer and security shield designed for autonomous AI coding agents (Antigravity, Claude Code, Cursor, Devin, Copilot). It neutralizes hardcoded secrets, shell injections, Trojan Source Unicode exploits, and prompt injection smuggling with sub-millisecond local heuristics.
+> SaniLine is a zero-latency, token-optimized line-by-line code sanitizer and security shield designed for autonomous AI coding agents (Antigravity, Claude Code, Cursor, Devin, Copilot). It neutralizes hardcoded secrets, shell injections, Prototype Pollution, DOM XSS, Trojan Source Unicode exploits, and prompt injection smuggling with sub-millisecond local heuristics. Available on npm and PyPI.
 
 ## Quick Summary for AI Coding Agents
 
@@ -8,14 +8,30 @@ When writing, streaming, or reviewing code, AI agents should pass every generate
 
 ## Core Rules & Defenses
 
-- **CWE-798 (Secrets Exposure)**: Masks AWS, GitHub, OpenAI, Anthropic, Google keys, and high-entropy secrets with `[REDACTED_SECRET:<TYPE>]` or `os.environ.get(...)` / `process.env`.
-- **CWE-78 (Command Injection)**: Auto-patches `subprocess.run(..., shell=True)` to `shell=False` and `os.system(...)` to safe argument arrays.
+- **CWE-798 (Secrets Exposure)**: Masks AWS, GitHub, OpenAI, Anthropic, Gemini, Stripe keys, and high-entropy secrets with `[REDACTED_SECRET:<TYPE>]` or `process.env` / `os.environ`.
+- **CWE-78 (Command Injection)**: Auto-patches `child_process.exec(...)` to `execFile` and `subprocess.run(..., shell=True)` to `shell=False`.
+- **CWE-1321 (Prototype Pollution)**: Blocks and neutralizes dynamic `__proto__` and `constructor.prototype` mutations.
+- **CWE-79 (DOM XSS)**: Flags dangerous `dangerouslySetInnerHTML`, `innerHTML = ...`, and `document.write`.
 - **CVE-2021-42574 (Trojan Source Unicode)**: Purges bidirectional overrides (`U+202E`, `U+2066`) and zero-width characters that disguise malicious code logic.
 - **CWE-1188 (Prompt Injection Smuggling)**: Defuses adversarial prompt injection directives hidden in comments or docstrings targeting AI agents.
-- **CWE-502 (Insecure Deserialization)**: Auto-patches `yaml.load()` to `yaml.safe_load()` and flags raw `pickle.loads()`.
-- **CWE-295 (Disabled Transport Security)**: Auto-patches `verify=False` and `rejectUnauthorized: false` to `True`.
+- **CWE-502 (Insecure Deserialization)**: Auto-patches `yaml.load()` to `yaml.safe_load()`.
+- **CWE-295 (Disabled Transport Security)**: Auto-patches `rejectUnauthorized: false` and `verify=False` to `True`.
 - **CWE-918 (SSRF)**: Blocks cloud metadata service endpoints (`169.254.169.254`).
-- **CWE-89 (SQL Injection)**: Flags dynamic f-string and concatenation queries.
+- **CWE-89 (SQL Injection)**: Flags dynamic template literal interpolations and string concatenations.
+
+## JavaScript / TypeScript Usage (for AI Agents & Vercel AI SDK)
+
+```typescript
+import { SaniLine, SaniLineTransformStream } from "saniline";
+
+// 1. Streaming Token Guard (Vercel AI SDK streamText):
+const safeStream = result.textStream.pipeThrough(new SaniLineTransformStream());
+
+// 2. Line-by-Line inspection:
+const shield = new SaniLine();
+const result = shield.sanitizeLine(codeLine);
+const compact = result.toTokenCompact(); // {"status": "CLEAN"}
+```
 
 ## Python Usage (for AI Agents)
 
@@ -33,36 +49,19 @@ if not clean.is_clean:
 print(clean.to_token_compact())
 ```
 
-## JavaScript / Node.js Usage (for AI Agents)
-
-```javascript
-import { SaniLine } from "saniline";
-
-const shield = new SaniLine();
-const result = shield.sanitizeLine(codeLine);
-const compact = result.toTokenCompact(); // {"status": "CLEAN"}
-```
-
-## jsDelivr CDN (Browser / Deno / Workers)
-
-```html
-<!-- npm-based CDN link -->
-<script src="https://cdn.jsdelivr.net/npm/saniline/dist/saniline.min.js"></script>
-
-<!-- GitHub-based CDN link -->
-<script src="https://cdn.jsdelivr.net/gh/alivirgo/SaniLine@v0.1.0/dist/saniline.min.js"></script>
-```
-
 ## MCP Server Integration (Model Context Protocol)
 
-Agents with MCP support can connect to `saniline-mcp`:
+Agents with MCP support can connect to `saniline-mcp` or `npx -y saniline mcp`:
 - `saniline_sanitize_line`: Sanitize line on the fly (`compact: true`).
 - `saniline_sanitize_block`: Sanitize complete blocks.
 - `saniline_audit_security`: Zero-token DoD STIG & NIST compliance audit.
+- `saniline_explain_rule`: Explains military-grade remediation for a rule ID.
 
 ## CLI Commands
 
-- `saniline check <path> --compact`: Audits target and outputs token-minified JSON.
-- `saniline sanitize <file> --in-place`: Automatically fixes vulnerabilities.
-- `saniline stream`: Reads stdin line-by-line and outputs safe lines to stdout.
-- `saniline hook install`: Installs Git pre-commit security hook.
+- `npx saniline check <path> --compact`: Audits target and outputs token-minified JSON (<10 tokens).
+- `npx saniline check <path> --format sarif`: Generates OASIS SARIF v2.1.0 for GitHub Code Scanning.
+- `npx saniline sanitize <file> --in-place`: Automatically patches vulnerabilities.
+- `npx saniline stream`: Reads stdin line-by-line and outputs safe lines to stdout.
+- `npx saniline rules`: Displays defense rules matrix table.
+- `npx saniline hook install`: Installs Git pre-commit security hook.

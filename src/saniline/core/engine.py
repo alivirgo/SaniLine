@@ -7,9 +7,8 @@ and token-optimized telemetry for autonomous AI agents.
 
 from __future__ import annotations
 
-import io
 from pathlib import Path
-from typing import Iterable, Iterator, List, Optional, Union
+from typing import Iterable, Iterator
 
 import saniline.rules  # Ensures all rules are loaded in RuleRegistry
 from saniline.core.context import StreamContext
@@ -19,6 +18,7 @@ from saniline.core.models import (
     SanitizeAction,
     SanitizedResult,
     SecurityLevel,
+    SecurityViolationError,
     Severity,
     Violation,
 )
@@ -50,8 +50,8 @@ class SaniLine:
         self,
         line: str,
         line_no: int = 1,
-        language: Optional[str] = None,
-        context: Optional[StreamContext] = None,
+        language: str | None = None,
+        context: StreamContext | None = None,
     ) -> SanitizedResult:
         """
         Sanitizes a single line of code with lexical context awareness.
@@ -64,7 +64,7 @@ class SaniLine:
         active_rules = RuleRegistry.get_rules(lang, self.level)
 
         current_line = line
-        violations: List[Violation] = []
+        violations: list[Violation] = []
         modified = False
 
         for rule in active_rules:
@@ -110,7 +110,7 @@ class SaniLine:
     def sanitize_stream(
         self,
         stream: Iterable[str],
-        language: Optional[str] = None,
+        language: str | None = None,
     ) -> Iterator[str]:
         """
         Consumes an iterator of lines (e.g. from an LLM token/line stream or stdin)
@@ -128,7 +128,7 @@ class SaniLine:
     def sanitize_code(
         self,
         code: str,
-        language: Optional[str] = None,
+        language: str | None = None,
     ) -> SanitizedResult:
         """
         Sanitizes a complete multi-line block of code or file content.
@@ -136,10 +136,9 @@ class SaniLine:
         lang = language or self.default_language
         context = StreamContext(language=lang)
 
-        # Split preserving line breaks
         lines = code.splitlines(keepends=True)
-        sanitized_lines: List[str] = []
-        all_violations: List[Violation] = []
+        sanitized_lines: list[str] = []
+        all_violations: list[Violation] = []
         any_modified = False
 
         for idx, line in enumerate(lines, start=1):
@@ -160,7 +159,7 @@ class SaniLine:
     def audit_code(
         self,
         code: str,
-        language: Optional[str] = None,
+        language: str | None = None,
         target_name: str = "<in-memory>",
     ) -> AuditReport:
         """
@@ -184,14 +183,9 @@ class SaniLine:
         report.calculate_score()
         return report
 
-    def audit_file(self, file_path: Union[str, Path]) -> AuditReport:
-        """Audits a file on disk."""
-        path = Path(file_path)
+    def audit_file(self, file_path: str | Path) -> AuditReport:
+        """Audits a file on disk using robust UTF-8 reading."""
+        path = Path(file_path).resolve()
         lang = StreamContext.detect_language_from_path_or_content(path.name)
         content = path.read_text(encoding="utf-8", errors="replace")
         return self.audit_code(content, language=lang, target_name=str(path))
-
-
-class SecurityViolationError(Exception):
-    """Raised when a critical security violation is encountered under BLOCK mode."""
-    pass

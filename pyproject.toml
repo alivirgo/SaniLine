@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "saniline"
-version = "0.1.0"
+version = "0.2.0"
 description = "Real-Time Military-Grade Line-by-Line Code Sanitizer & Security Shield for AI Agents"
 readme = "README.md"
 requires-python = ">=3.9"

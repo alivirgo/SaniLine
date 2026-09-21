@@ -9,7 +9,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
+
+
+class SaniLineError(Exception):
+    """Base exception for all SaniLine domain errors."""
+
+
+class SecurityViolationError(SaniLineError):
+    """Raised when strict zero-tolerance enforcement encounters a critical violation."""
 
 
 class SecurityLevel(str, Enum):
@@ -39,6 +47,8 @@ class RuleCategory(str, Enum):
     CRYPTO_FAILURE = "cryptographic_failure"
     SSRF_NETWORK = "ssrf_network_exfiltration"
     SANDBOX_ESCAPE = "sandbox_escape"
+    PROTOTYPE_POLLUTION = "prototype_pollution"
+    XSS = "cross_site_scripting"
 
 
 class Severity(str, Enum):
@@ -68,14 +78,14 @@ class Violation:
     category: RuleCategory
     line_number: int
     column: int = 0
-    cwe_id: Optional[str] = None
-    stig_id: Optional[str] = None
-    nist_control: Optional[str] = None
+    cwe_id: str | None = None
+    stig_id: str | None = None
+    nist_control: str | None = None
     matched_snippet: str = ""
     remediation_advice: str = ""
-    suggested_patch: Optional[str] = None
+    suggested_patch: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "rule_id": self.rule_id,
             "title": self.title,
@@ -98,9 +108,9 @@ class SanitizedResult:
     """Outcome of processing a line or code block through SaniLine."""
     original_code: str
     sanitized_code: str
-    violations: List[Violation] = field(default_factory=list)
+    violations: list[Violation] = field(default_factory=list)
     was_modified: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def is_clean(self) -> bool:
@@ -110,7 +120,7 @@ class SanitizedResult:
     def has_critical(self) -> bool:
         return any(v.severity == Severity.CRITICAL for v in self.violations)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "original_code": self.original_code,
             "sanitized_code": self.sanitized_code,
@@ -121,7 +131,7 @@ class SanitizedResult:
             "metadata": self.metadata,
         }
 
-    def to_token_compact(self) -> Dict[str, Any]:
+    def to_token_compact(self) -> dict[str, Any]:
         """
         Hyper-compact representation engineered specifically to minimize LLM token consumption
         when returned to autonomous AI agents (saves up to 90% context tokens).
@@ -129,7 +139,7 @@ class SanitizedResult:
         if self.is_clean and not self.was_modified:
             return {"status": "CLEAN"}
 
-        compact: Dict[str, Any] = {
+        compact: dict[str, Any] = {
             "status": "MODIFIED" if self.was_modified else "VIOLATION",
         }
         if self.was_modified:
@@ -152,7 +162,7 @@ class AuditReport:
     """Comprehensive compliance and security evaluation report."""
     target_name: str
     total_lines: int
-    violations: List[Violation] = field(default_factory=list)
+    violations: list[Violation] = field(default_factory=list)
     security_score: float = 100.0
     passed_military_spec: bool = True
 
@@ -160,7 +170,6 @@ class AuditReport:
         if self.total_lines <= 0:
             return 100.0
         penalty = sum(v.severity.score_weight for v in self.violations)
-        # Scaled penalty relative to code density
         density_factor = max(1.0, self.total_lines / 20.0)
         deduction = (penalty * 10.0) / density_factor
         score = max(0.0, min(100.0, 100.0 - deduction))
@@ -171,13 +180,13 @@ class AuditReport:
         )
         return self.security_score
 
-    def get_counts_by_severity(self) -> Dict[str, int]:
+    def get_counts_by_severity(self) -> dict[str, int]:
         counts = {s.value: 0 for s in Severity}
         for v in self.violations:
             counts[v.severity.value] += 1
         return counts
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         self.calculate_score()
         return {
             "target_name": self.target_name,
@@ -189,7 +198,7 @@ class AuditReport:
             "violations": [v.to_dict() for v in self.violations],
         }
 
-    def to_token_compact(self) -> Dict[str, Any]:
+    def to_token_compact(self) -> dict[str, Any]:
         """Token-minified audit summary for AI agents."""
         self.calculate_score()
         if self.passed_military_spec and not self.violations:
@@ -204,4 +213,3 @@ class AuditReport:
                 for v in self.violations[:10]  # Cap at top 10 to protect token budget
             ],
         }
-

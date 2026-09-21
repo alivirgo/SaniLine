@@ -8,7 +8,6 @@ wildcard network listeners as mandated by CWE-918 and DoD STIG APSC-DV-002570.
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from saniline.core.context import StreamContext
 from saniline.core.models import (
@@ -42,7 +41,7 @@ class CloudMetadataSsrfRule(BaseRule):
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         if context.is_inside_comment_or_docstring():
             return None
 
@@ -72,13 +71,13 @@ class WildcardBindRule(BaseRule):
     stig_id = "APSC-DV-002580"
     nist_control = "SC-7"
     min_security_level = SecurityLevel.STRICT
-    supported_languages = ["python", "javascript", "typescript"]
+    supported_languages = ["python", "javascript", "typescript", "generic", "*"]
 
-    PATTERN = re.compile(r"""\b(?:host|bind|address)\s*[:=]\s*['"]0\.0\.0\.0['"]""")
+    PATTERN = re.compile(r"""(?:['"]0\.0\.0\.0['"]|\b(?:host|bind|address)\s*[:=]\s*['"]0\.0\.0\.0['"])""")
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         if context.is_inside_comment_or_docstring():
             return None
 

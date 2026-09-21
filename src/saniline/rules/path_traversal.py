@@ -8,7 +8,6 @@ in compliance with CWE-22, CWE-23, and DoD STIG APSC-DV-002560.
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from saniline.core.context import StreamContext
 from saniline.core.models import (
@@ -40,7 +39,7 @@ class PathTraversalSequenceRule(BaseRule):
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         if context.is_inside_comment_or_docstring() or line.strip().startswith(("#", "//")):
             return None
 
@@ -64,7 +63,7 @@ class ZipSlipVulnerabilityRule(BaseRule):
     rule_id = "SL-PATH-002"
     title = "Unconfined Archive Extraction (Zip Slip)"
     description = (
-        "Extracting archives directly using extractall() without member path validation "
+        "Extracting archives directly using extractall() or extract() without member path validation "
         "enables arbitrary file overwrites via malicious archive member paths (CWE-22, CWE-29)."
     )
     category = RuleCategory.PATH_TRAVERSAL
@@ -73,21 +72,20 @@ class ZipSlipVulnerabilityRule(BaseRule):
     stig_id = "APSC-DV-002560"
     nist_control = "SI-10"
     min_security_level = SecurityLevel.STRICT
-    supported_languages = ["python"]
+    supported_languages = ["python", "javascript", "typescript", "generic", "*"]
 
-    PATTERN = re.compile(r"""\b(?:zip_file|zipfile|tarfile|archive|tar|zf)\s*\.\s*extractall\s*\((.*?)\)""")
+    PATTERN = re.compile(r"""\b(?:zip_file|zipfile|tarfile|archive|tar|zf|zip)\s*\.\s*(?:extractall|extract)\s*\((.{0,256}?)\)""")
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         if context.is_inside_comment_or_docstring():
             return None
 
         match = self.PATTERN.search(line)
         if match:
-            # Check if members filter parameter is passed (e.g. Python 3.12+ filter='data')
             args = match.group(1)
-            if "filter=" in args:
+            if "filter=" in args or "is_safe_path" in line:
                 return None
 
             return self.create_violation(
@@ -96,6 +94,6 @@ class ZipSlipVulnerabilityRule(BaseRule):
                 column=match.start(),
                 remediation_advice="Validate every archive member destination before extraction or pass filter='data' (Python 3.12+).",
                 suggested_patch=None,
-                custom_description="Unvalidated archive extractall() call susceptible to Zip Slip directory overwrite.",
+                custom_description="Unvalidated archive extraction call susceptible to Zip Slip directory overwrite.",
             )
         return None

@@ -8,7 +8,7 @@ military-grade security checks, matching, and deterministic auto-patching.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import ClassVar, Dict, List, Optional, Tuple, Type
+from typing import ClassVar
 
 from saniline.core.context import StreamContext
 from saniline.core.models import (
@@ -31,12 +31,11 @@ class BaseRule(ABC):
     stig_id: ClassVar[str] = "APSC-DV-000000"
     nist_control: ClassVar[str] = "SI-10"
     min_security_level: ClassVar[SecurityLevel] = SecurityLevel.STANDARD
-    supported_languages: ClassVar[List[str]] = ["*"]
+    supported_languages: ClassVar[list[str]] = ["*"]
 
     @classmethod
     def applies_to(cls, language: str, level: SecurityLevel) -> bool:
         """Determines if this rule is enabled for the language and security level."""
-        # Level hierarchy: STANDARD <= STRICT <= MILITARY
         level_order = {
             SecurityLevel.STANDARD: 1,
             SecurityLevel.STRICT: 2,
@@ -49,24 +48,21 @@ class BaseRule(ABC):
             return True
         return language.lower() in [l.lower() for l in cls.supported_languages]
 
-
     @abstractmethod
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         """Inspects a line for vulnerabilities. Returns a Violation if identified."""
         pass
 
     def sanitize_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Tuple[str, Optional[Violation]]:
+    ) -> tuple[str, Violation | None]:
         """Inspects and optionally auto-patches the line to neutralize the threat."""
         violation = self.inspect_line(line, line_no, context)
         if violation and violation.suggested_patch is not None:
             return violation.suggested_patch, violation
         return line, violation
-
-    protected_violation_helper = None
 
     def create_violation(
         self,
@@ -74,8 +70,8 @@ class BaseRule(ABC):
         matched_snippet: str,
         column: int = 0,
         remediation_advice: str = "",
-        suggested_patch: Optional[str] = None,
-        custom_description: Optional[str] = None,
+        suggested_patch: str | None = None,
+        custom_description: str | None = None,
     ) -> Violation:
         """Helper to instantiate a standardized Violation object."""
         return Violation(
@@ -98,28 +94,31 @@ class BaseRule(ABC):
 class RuleRegistry:
     """Registry maintaining active defense rules."""
 
-    _rules: Dict[str, BaseRule] = {}
+    _rules: dict[str, BaseRule] = {}
 
     @classmethod
-    def register(cls, rule_cls: Type[BaseRule]) -> Type[BaseRule]:
+    def register(cls, rule_cls: type[BaseRule]) -> type[BaseRule]:
         instance = rule_cls()
-        cls._rules[rule_cls.rule_id] = instance
+        cls._rules[rule_cls.__name__] = instance
         return rule_cls
 
     @classmethod
-    def get_rules(cls, language: str, level: SecurityLevel) -> List[BaseRule]:
+    def get_rules(cls, language: str, level: SecurityLevel) -> list[BaseRule]:
         return [
             rule for rule in cls._rules.values()
             if rule.applies_to(language, level)
         ]
 
     @classmethod
-    def all_rules(cls) -> List[BaseRule]:
+    def all_rules(cls) -> list[BaseRule]:
         return list(cls._rules.values())
 
     @classmethod
-    def get_rule_by_id(cls, rule_id: str) -> Optional[BaseRule]:
-        return cls._rules.get(rule_id)
+    def get_rule_by_id(cls, rule_id: str) -> BaseRule | None:
+        for rule in cls._rules.values():
+            if rule.rule_id == rule_id:
+                return rule
+        return None
 
     @classmethod
     def clear(cls) -> None:

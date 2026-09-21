@@ -8,7 +8,6 @@ misconfigurations as specified in CWE-78, CWE-95, and DoD STIG APSC-DV-002100.
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from saniline.core.context import StreamContext
 from saniline.core.models import (
@@ -34,16 +33,11 @@ class ShellTrueInjectionRule(BaseRule):
     stig_id = "APSC-DV-002100"
     nist_control = "SI-10"
     min_security_level = SecurityLevel.STANDARD
-    supported_languages = ["python"]
-
-    PATTERN = re.compile(
-        r"""\b(?:subprocess\s*\.\s*(?:run|Popen|call|check_call|check_output))\s*\([^)]*?\bshell\s*=\s*True""",
-        re.DOTALL
-    )
+    supported_languages = ["python", "generic", "*"]
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         if context.is_inside_comment_or_docstring():
             return None
 
@@ -61,6 +55,45 @@ class ShellTrueInjectionRule(BaseRule):
 
 
 @RuleRegistry.register
+class NodeChildProcessExecRule(BaseRule):
+    rule_id = "SL-RCE-004"
+    title = "Insecure child_process shell invocation (exec/execSync)"
+    description = (
+        "child_process.exec and execSync spawn a subshell to run commands, allowing command injection. "
+        "Use execFile/spawn with array arguments instead (CWE-78)."
+    )
+    category = RuleCategory.RCE_COMMAND_INJECTION
+    severity = Severity.HIGH
+    cwe_id = "CWE-78"
+    stig_id = "APSC-DV-002100"
+    nist_control = "SI-10"
+    min_security_level = SecurityLevel.STANDARD
+    supported_languages = ["javascript", "typescript", "generic", "*"]
+
+    PATTERN = re.compile(r"""\bchild_process\s*\.\s*(exec|execSync)\s*\(""")
+
+    def inspect_line(
+        self, line: str, line_no: int, context: StreamContext
+    ) -> Violation | None:
+        if context.is_inside_comment_or_docstring():
+            return None
+
+        match = self.PATTERN.search(line)
+        if match:
+            fn = match.group(1)
+            replacement = "execFileSync(" if fn == "execSync" else "execFile("
+            patched = line[:match.start()] + f"child_process.{replacement}" + line[match.end():]
+            return self.create_violation(
+                line_no=line_no,
+                matched_snippet=match.group(0),
+                column=match.start(),
+                remediation_advice="Use child_process.execFile() or spawn() with argument arrays.",
+                suggested_patch=patched,
+            )
+        return None
+
+
+@RuleRegistry.register
 class ArbitraryEvalExecRule(BaseRule):
     rule_id = "SL-RCE-002"
     title = "Dangerous Dynamic Code Execution via eval()/exec()"
@@ -74,28 +107,27 @@ class ArbitraryEvalExecRule(BaseRule):
     stig_id = "APSC-DV-002110"
     nist_control = "SC-18"
     min_security_level = SecurityLevel.STANDARD
-    supported_languages = ["python", "javascript", "typescript"]
+    supported_languages = ["python", "javascript", "typescript", "generic", "*"]
 
-    # Match eval(...) or exec(...) not preceded by safe wrappers
-    PY_PATTERN = re.compile(r"""\b(eval|exec)\s*\((.+?)\)""")
-    JS_PATTERN = re.compile(r"""\b(eval|new\s+Function)\s*\((.+?)\)""")
+    # Match eval(...) or exec(...) not preceded by safe wrappers (bounded quantifier)
+    PY_PATTERN = re.compile(r"""\b(eval|exec)\s*\((.{1,512}?)\)""")
+    JS_PATTERN = re.compile(r"""\b(eval|new\s+Function)\s*\((.{1,512}?)\)""")
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         if context.is_inside_comment_or_docstring():
             return None
 
         # Check Python
-        if context.language in ("python", "generic"):
+        if context.language in ("python", "generic", "*"):
             match = self.PY_PATTERN.search(line)
             if match:
                 fn_name = match.group(1)
-                arg = match.group(2).strip()
-                # Don't flag trivial literals like eval("1+1") or ast.literal_eval
+                # Don't flag comments or ast.literal_eval
                 if not (line.strip().startswith("#") or "literal_eval" in line):
                     suggested = None
-                    if fn_name == "eval" and context.language == "python":
+                    if fn_name == "eval":
                         suggested = line.replace("eval(", "ast.literal_eval(")
                     return self.create_violation(
                         line_no=line_no,
@@ -107,7 +139,7 @@ class ArbitraryEvalExecRule(BaseRule):
                     )
 
         # Check JS/TS
-        if context.language in ("javascript", "typescript"):
+        if context.language in ("javascript", "typescript", "generic", "*"):
             match = self.JS_PATTERN.search(line)
             if match:
                 return self.create_violation(
@@ -136,11 +168,11 @@ class OsSystemCommandRule(BaseRule):
     min_security_level = SecurityLevel.STANDARD
     supported_languages = ["python"]
 
-    PATTERN = re.compile(r"""\bos\.system\s*\((.+?)\)""")
+    PATTERN = re.compile(r"""\bos\.system\s*\((.{1,512}?)\)""")
 
     def inspect_line(
         self, line: str, line_no: int, context: StreamContext
-    ) -> Optional[Violation]:
+    ) -> Violation | None:
         if context.is_inside_comment_or_docstring():
             return None
 

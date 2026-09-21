@@ -5,6 +5,7 @@ Tests CLI command execution, exit codes, rich outputs, and compact flags.
 """
 
 from click.testing import CliRunner
+from saniline import __version__
 from saniline.cli.main import main
 
 
@@ -13,7 +14,7 @@ def test_cli_version():
     result = runner.invoke(main, ["--version"])
     assert result.exit_code == 0
     assert "SaniLine" in result.output
-    assert "0.1.0" in result.output
+    assert __version__ in result.output
 
 
 def test_cli_rules():

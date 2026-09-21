@@ -7,8 +7,8 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
-  test:
-    name: Test on Python ${{ matrix.python-version }} (${{ matrix.os }})
+  test-python:
+    name: Python ${{ matrix.python-version }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -30,6 +30,33 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install .[test]
 
-      - name: Run SaniLine Test Suite
+      - name: Run SaniLine Python Test Suite
         run: |
           python -m pytest -v
+
+  test-node:
+    name: Node.js ${{ matrix.node-version }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: ["18.x", "20.x", "22.x"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Run SaniLine Node.js Test Suite
+        run: npm test
+
+      - name: Test CLI Directory Audit
+        run: node bin/saniline.js check bin/ --compact
+
+      - name: Test SARIF Generation
+        run: node bin/saniline.js check bin/ --format sarif

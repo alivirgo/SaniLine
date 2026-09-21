@@ -1,6 +1,6 @@
 # Cursor Rules for SaniLine Security Compliance
 
 Always adhere to military-grade code security standards using SaniLine:
-1. When generating code lines or editing files, ensure no hardcoded secrets, shell=True invocations, Trojan Source Unicode overrides, or insecure deserialization are introduced.
-2. You may execute `saniline check <file> --compact` or `saniline sanitize <file> --in-place` to verify and auto-patch your modifications.
-3. Use `result.to_token_compact()` when calling SaniLine via Python/JS or MCP to minimize context token usage.
+1. When generating code lines or editing files, ensure no hardcoded secrets (AWS, GitHub, OpenAI, Anthropic, Gemini, Stripe, Supabase), shell=True invocations, child_process.exec shell calls, Prototype Pollution (__proto__), DOM XSS (dangerouslySetInnerHTML), Trojan Source Unicode overrides (CVE-2021-42574), or insecure deserialization are introduced.
+2. You may execute `saniline check <file> --compact` or `npx saniline check <file> --compact` to verify and auto-patch your modifications.
+3. Use `result.to_token_compact()` (Python) or `result.toTokenCompact()` (JS) when calling SaniLine or via MCP (`saniline mcp`, `npx -y saniline mcp`) to minimize context token usage (<10 tokens).
